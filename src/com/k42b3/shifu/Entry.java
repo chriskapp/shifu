@@ -22,11 +22,11 @@
 package com.k42b3.shifu;
 
 /**
- * Shifu
+ * Entry
  *
- * @author     Christoph Kappestein <k42b3.x@gmail.com>
- * @license    http://www.gnu.org/licenses/gpl.html GPLv3
- * @link       http://shifu.k42b3.com
+ * @author  Christoph Kappestein <k42b3.x@gmail.com>
+ * @license http://www.gnu.org/licenses/gpl.html GPLv3
+ * @link    http://shifu.k42b3.com
  */
 public class Entry
 {

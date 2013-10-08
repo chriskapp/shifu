@@ -63,43 +63,17 @@ import javax.swing.table.TableCellRenderer;
 /**
  * Shifu
  *
- * @author     Christoph Kappestein <k42b3.x@gmail.com>
- * @license    http://www.gnu.org/licenses/gpl.html GPLv3
- * @link       http://shifu.k42b3.com
+ * @author  Christoph Kappestein <k42b3.x@gmail.com>
+ * @license http://www.gnu.org/licenses/gpl.html GPLv3
+ * @link    http://shifu.k42b3.com
  */
 public class Shifu extends JFrame
 {
-	public static final String VERSION = "0.0.3 beta";
-	
-	public static final int TYPE_CONVERT_BINARY = 0x0;
-	public static final int TYPE_CONVERT_OCTAL = 0x1;
-	public static final int TYPE_CONVERT_HEX = 0x2;
-	public static final int TYPE_MATH_ADDITION = 0x4;
-	public static final int TYPE_MATH_SUBTRACT = 0x5;
-	public static final int TYPE_MATH_DIVIDE = 0x6;
-	public static final int TYPE_MATH_MULTIPLY = 0x7;
-	public static final int TYPE_MATH_MODULO = 0x8;
-	public static final int TYPE_LOGIC_AND = 0x9;
-	public static final int TYPE_LOGIC_OR = 0xA;
-	public static final int TYPE_LOGIC_XOR = 0xB;
-	
-	private int maxInteger = 32;
-	
-	private ArrayList<Integer> types = new ArrayList<Integer>();
-	private String challenge;
-	private int answer;
-	
-	private JLabel lblChallenge;
-	private JTextField txtAnswer;
-	private JButton btnSolve;
-	private JButton btnSkip;
-	private JButton btnAnswer;
-	private JButton btnResult;
-	
+	public static final String VERSION = "0.0.4 beta";
+
 	private Connection connection;
 	private DefaultTableModel resultModel;
-	private HashMap<Integer, JCheckBox> settingTypes = new HashMap<Integer, JCheckBox>();
-	
+
 	public Shifu()
 	{
 		this.setTitle("Shifu " + VERSION);
@@ -109,16 +83,15 @@ public class Shifu extends JFrame
 		this.setLayout(new BorderLayout());
 		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		
-		// connect to db
 		this.connect();
-		
-		// tab pane
-		JTabbedPane tabPane = new JTabbedPane();
-		tabPane.setFocusable(false);
-		tabPane.addTab("Challenge", buildChallengePanel());
-		tabPane.addTab("Results", buildResultPanel());
-		tabPane.addTab("Settings", buildSettingPanel());
-		tabPane.addChangeListener(new ChangeListener() {
+
+		JTabbedPane tp = new JTabbedPane();
+		tp.setFocusable(false);
+		tp.addTab("Processor", new Processor(connection));
+		tp.addTab("Memory", new Memory(connection));
+		tp.addTab("Results", this.buildResultPanel());
+
+		tp.addChangeListener(new ChangeListener() {
 
 			public void stateChanged(ChangeEvent e)
 			{
@@ -126,218 +99,8 @@ public class Shifu extends JFrame
 			}
 
 		});
-		
-		this.add(tabPane, BorderLayout.CENTER);
-		
-		// build first challenge
-		this.nextChallenge();
-	}
 
-	protected void nextChallenge()
-	{
-		int index = (int) (types.size() * Math.random());
-		int type = types.get(index);
-		
-		int answer;
-		String challenge;
-		int a1;
-		int a2;
-		
-		switch(type)
-		{
-			case TYPE_MATH_ADDITION:
-				a1 = getRandomInt();
-				a2 = getRandomInt();
-				answer = a1 + a2;
-				challenge = a1 + " + " + a2;
-				break;
-
-			case TYPE_MATH_SUBTRACT:
-				a1 = getRandomInt();
-				a2 = getRandomInt();
-				answer = a1 - a2;
-				challenge = a1 + " - " + a2;
-				break;
-
-			case TYPE_MATH_DIVIDE:
-				a1 = getRandomInt();
-				a2 = getRandomInt();
-
-				if(a2 == 0)
-				{
-					nextChallenge();
-					return;
-				}
-
-				answer = a1 / a2;
-				challenge = a1 + " / " + a2;
-				break;
-
-			case TYPE_MATH_MULTIPLY:
-				a1 = getRandomInt();
-				a2 = getRandomInt();
-				answer = a1 * a2;
-				challenge = a1 + " * " + a2;
-				break;
-
-			case TYPE_MATH_MODULO:
-				a1 = getRandomInt();
-				a2 = getRandomInt();
-				
-				if(a2 == 0)
-				{
-					nextChallenge();
-					return;
-				}
-
-				answer = a1 % a2;
-				challenge = a1 + " % " + a2;
-				break;
-				
-			case TYPE_LOGIC_AND:
-				a1 = getRandomInt();
-				a2 = getRandomInt();
-				answer = a1 & a2;
-				challenge = Integer.toBinaryString(a1) + " & " + Integer.toBinaryString(a2);
-				break;
-
-			case TYPE_LOGIC_OR:
-				a1 = getRandomInt();
-				a2 = getRandomInt();
-				answer = a1 | a2;
-				challenge = Integer.toBinaryString(a1) + " | " + Integer.toBinaryString(a2);
-				break;
-
-			case TYPE_LOGIC_XOR:
-				a1 = getRandomInt();
-				a2 = getRandomInt();
-				answer = a1 ^ a2;
-				challenge = Integer.toBinaryString(a1) + " ^ " + Integer.toBinaryString(a2);
-				break;
-
-			case TYPE_CONVERT_HEX:
-				answer = getRandomInt();
-				challenge = "0x" + Integer.toHexString(answer).toUpperCase();
-				break;
-
-			case TYPE_CONVERT_OCTAL:
-				answer = getRandomInt();
-				challenge = "0" + Integer.toOctalString(answer);
-				break;
-				
-			default:
-			case TYPE_CONVERT_BINARY:
-				answer = getRandomInt();
-				challenge = Integer.toBinaryString(answer);
-				break;
-		}
-		
-		setChallenge(challenge);
-		setAnswer(answer);
-		
-		txtAnswer.setText("");
-		txtAnswer.requestFocusInWindow();
-	}
-	
-	protected void solveChallenge()
-	{
-		String answerExpr = txtAnswer.getText();
-		
-		// try to evaluate answer expr
-		/*
-	    try
-		{
-	    	if(answerExpr != null && !answerExpr.isEmpty())
-	    	{
-				ScriptEngineManager mgr = new ScriptEngineManager();
-			    ScriptEngine engine = mgr.getEngineByName("JavaScript");
-			    
-				answerExpr = engine.eval(answerExpr).toString();	    		
-	    	}
-		}
-		catch (ScriptException e1)
-		{
-		}
-		*/
-		
-		// check answer
-		int correct = 0;
-		int answer;
-		
-		try
-		{
-			answer = (int) Float.parseFloat(answerExpr);
-
-			if(answer == this.answer)
-			{
-				txtAnswer.setBackground(Color.GREEN);
-				
-				correct = 1;
-			}
-			else
-			{
-				txtAnswer.setBackground(Color.RED);
-				
-				correct = 0;
-			}
-		}
-		catch(NumberFormatException e)
-		{
-			JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-			return;
-		}
-
-		// insert answer
-		try
-		{
-			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			Statement stmt = connection.createStatement();
-			String sql = "INSERT INTO results (`challenge`, `answer`, `correct`, `date`) ";
-			sql+= "VALUES ('" + challenge + "', " + answer + ", " + correct + ", '" + sdf.format(new Date()) + "')";
-
-			stmt.executeUpdate(sql);
-		}
-		catch(SQLException e)
-		{
-			JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-		}
-		
-		if(correct == 1)
-		{
-			nextChallenge();
-		}
-	}
-
-	protected void answerChallenge()
-	{
-		txtAnswer.setText("" + this.answer);
-	}
-	
-	protected void setChallenge(String challenge)
-	{
-		this.challenge = challenge;
-		
-		lblChallenge.setText(challenge);
-	}
-	
-	protected void setAnswer(int answer)
-	{
-		this.answer = answer;
-	}
-	
-	protected int getRandomInt(int max)
-	{
-		return (int) (Math.random() * max);
-	}
-
-	protected int getRandomInt()
-	{
-		return getRandomInt(getMaxInt());
-	}
-
-	protected int getMaxInt()
-	{
-		return maxInteger;
+		this.add(tp, BorderLayout.CENTER);
 	}
 	
 	protected void connect()
@@ -393,109 +156,6 @@ public class Shifu extends JFrame
 		}
 	}
 	
-	protected void refreshSettings()
-	{
-		Iterator<Entry<Integer, JCheckBox>> it = settingTypes.entrySet().iterator();
-		types.clear();
-		
-		while(it.hasNext())
-		{
-			Entry<Integer, JCheckBox> entry = it.next();
-			
-			if(entry.getValue().isSelected())
-			{
-				types.add(entry.getKey());
-			}
-		}
-		
-		if(types.size() == 0)
-		{
-			types.add(TYPE_CONVERT_BINARY);
-		}
-	}
-	
-	protected Component buildChallengePanel()
-	{
-		JPanel panel = new JPanel(new BorderLayout());
-		
-		// task
-		lblChallenge = new JLabel("-");
-		lblChallenge.setFont(new Font("Arial", Font.BOLD, 24));
-		lblChallenge.setBorder(new EmptyBorder(8, 8, 8, 8));
-		
-		panel.add(lblChallenge, BorderLayout.NORTH);
-		
-		// answer
-		txtAnswer = new JTextField();
-		txtAnswer.setFont(new Font("Arial", Font.BOLD, 24));
-		txtAnswer.setBorder(new EmptyBorder(8, 8, 8, 8));
-		txtAnswer.addKeyListener(new KeyListener(){
-
-			public void keyPressed(KeyEvent e)
-			{
-				if(e.getKeyCode() == KeyEvent.VK_ENTER)
-				{
-					solveChallenge();
-				}
-			}
-
-			public void keyReleased(KeyEvent e)
-			{
-			}
-
-			public void keyTyped(KeyEvent e)
-			{
-			}
-			
-		});
-		
-		panel.add(txtAnswer, BorderLayout.CENTER);
-		
-		// buttons
-		JPanel panelButtons = new JPanel(new FlowLayout(FlowLayout.LEFT));
-		
-		btnSolve = new JButton("Solve");
-		btnSolve.addActionListener(new ActionListener(){
-
-			public void actionPerformed(ActionEvent e)
-			{
-				solveChallenge();
-			}
-			
-		});
-		
-		btnSkip = new JButton("Skip");
-		btnSkip.addActionListener(new ActionListener() {
-			
-			public void actionPerformed(ActionEvent e)
-			{
-				nextChallenge();
-				
-				// reset bg color
-				txtAnswer.setBackground(new JTextField().getBackground());
-			}
-			
-		});
-		
-		btnAnswer = new JButton("Answer");
-		btnAnswer.addActionListener(new ActionListener() {
-			
-			public void actionPerformed(ActionEvent e)
-			{
-				answerChallenge();
-			}
-			
-		});
-		
-		panelButtons.add(btnSolve);
-		panelButtons.add(btnSkip);
-		panelButtons.add(btnAnswer);
-		
-		panel.add(panelButtons, BorderLayout.SOUTH);
-		
-		return panel;
-	}
-	
 	protected Component buildResultPanel()
 	{
 		JPanel panel = new JPanel(new BorderLayout());
@@ -525,87 +185,6 @@ public class Shifu extends JFrame
 		panel.add(new JScrollPane(tblResult), BorderLayout.CENTER);
 		
 		return panel;
-	}
-	
-	protected Component buildSettingPanel()
-	{
-		JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-		panel.setPreferredSize(new Dimension(300, 600));
-		
-		JPanel panelDifficulty = new JPanel(new FlowLayout(FlowLayout.LEFT));
-		
-		JLabel lblDifficulty = new JLabel("Difficulty");
-		lblDifficulty.setPreferredSize(new Dimension(100, 24));
-
-		JSlider sldDifficulty = new JSlider(JSlider.HORIZONTAL, 8, 128, maxInteger);
-		sldDifficulty.setPreferredSize(new Dimension(200, 50));
-		sldDifficulty.setMajorTickSpacing(20);
-		sldDifficulty.setPaintTicks(true);
-		sldDifficulty.setPaintLabels(true);
-		sldDifficulty.addChangeListener(new ChangeListener(){
-
-			public void stateChanged(ChangeEvent e)
-			{
-				JSlider source = (JSlider) e.getSource();
-
-			    if(!source.getValueIsAdjusting())
-			    {
-			    	maxInteger = (int) source.getValue();
-			    }
-			}
-
-		});
-
-		panelDifficulty.add(lblDifficulty);
-		panelDifficulty.add(sldDifficulty);
-		
-		panel.add(panelDifficulty);
-		
-		settingTypes.put(TYPE_CONVERT_BINARY, new JCheckBox("Convert Binary"));
-		settingTypes.put(TYPE_CONVERT_OCTAL, new JCheckBox("Convert Octal"));
-		settingTypes.put(TYPE_CONVERT_HEX, new JCheckBox("Convert Hex"));
-		settingTypes.put(TYPE_MATH_ADDITION, new JCheckBox("Math Addition"));
-		settingTypes.put(TYPE_MATH_SUBTRACT, new JCheckBox("Math Subtract"));
-		settingTypes.put(TYPE_MATH_DIVIDE, new JCheckBox("Math Divide"));
-		settingTypes.put(TYPE_MATH_MULTIPLY, new JCheckBox("Math Multiply"));
-		settingTypes.put(TYPE_MATH_MODULO, new JCheckBox("Math Modulo"));
-		settingTypes.put(TYPE_LOGIC_AND, new JCheckBox("Logic AND"));
-		settingTypes.put(TYPE_LOGIC_OR, new JCheckBox("Logic OR"));
-		settingTypes.put(TYPE_LOGIC_XOR, new JCheckBox("Logic XOR"));
-
-		Iterator<Entry<Integer, JCheckBox>> it = settingTypes.entrySet().iterator();
-
-		while(it.hasNext())
-		{
-			Entry<Integer, JCheckBox> entry = it.next();
-			JCheckBox ckbType = entry.getValue();
-			
-			JPanel panelType = new JPanel(new FlowLayout(FlowLayout.LEFT));
-			
-			JLabel lblType = new JLabel(ckbType.getText());
-			lblType.setPreferredSize(new Dimension(100, 24));
-
-			ckbType.setText("");
-			ckbType.setPreferredSize(new Dimension(200, 30));
-			ckbType.setSelected(true);
-			ckbType.addActionListener(new ActionListener() {
-				
-				public void actionPerformed(ActionEvent e)
-				{
-					refreshSettings();
-				}
-				
-			});
-
-			panelType.add(lblType);
-			panelType.add(ckbType);
-			
-			panel.add(panelType);
-		}
-		
-		refreshSettings();
-		
-		return new JScrollPane(panel);
 	}
 
 	private class CellRendererResult implements TableCellRenderer
